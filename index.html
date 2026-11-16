@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tirage Secret Santa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Caveat:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+[hidden] { display: none !important; }
+/* Layout: one narrow column, a gift tag as the single bold object; everything else quiet. */
+:root {
+  --bg: #f2f4f3;
+  --surface: #ffffff;
+  --ink: #1b2320;
+  --muted: #5c6a64;
+  --line: #d6ddda;
+  --accent: #b3203a;
+  --accent-ink: #ffffff;
+  --accent-soft: #f7e3e6;
+  --pine: #1f5a42;
+  --kraft: #cfa06a;
+  --kraft-ink: #3a2814;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-hand: "Caveat", "Bradley Hand", "Segoe Print", cursive;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111614; --surface: #19201d; --ink: #e7ecea; --muted: #98a6a0; --line: #2b3531;
+    --accent: #e25a70; --accent-ink: #1a0b0e; --accent-soft: #3a1c22; --pine: #67b892;
+    --kraft: #c0925c; --kraft-ink: #2a1c0c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111614; --surface: #19201d; --ink: #e7ecea; --muted: #98a6a0; --line: #2b3531;
+  --accent: #e25a70; --accent-ink: #1a0b0e; --accent-soft: #3a1c22; --pine: #67b892;
+  --kraft: #c0925c; --kraft-ink: #2a1c0c; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 32px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(2.2rem, 7vw, 3.2rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); }
+.lede { color: var(--muted); max-width: 52ch; }
+.top { display: grid; gap: 12px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px; display: grid; gap: 24px; }
+.group { display: grid; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; }
+.row > * { flex: 1 1 140px; min-width: 0; }
+label, .label { font-size: 0.85rem; font-weight: 600; display: grid; gap: 6px; }
+.hint { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
+
+input, textarea {
+  font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%;
+}
+textarea { min-height: 76px; resize: vertical; }
+input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid transparent; padding: 10px 16px; font-weight: 600; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { filter: brightness(1.07); }
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn-ghost:hover { border-color: var(--muted); }
+.btn-link { background: none; border: none; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
+.btn-link:hover { color: var(--ink); }
+.btn-big { padding: 14px 20px; font-size: 1.05rem; width: 100%; }
+
+.add { display: flex; gap: 8px; }
+.add input { flex: 1; min-width: 0; }
+.chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 6px 6px 12px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); font-weight: 500; }
+.chip button { padding: 2px 8px; border-radius: 999px; background: none; color: var(--muted); font-weight: 400; line-height: 1.2; }
+.chip button:hover { color: var(--accent); background: var(--accent-soft); }
+.count { font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+details summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+details[open] summary { margin-bottom: 10px; }
+
+.example { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 0.85rem; color: var(--muted); padding: 10px 12px; border: 1px dashed var(--line); border-radius: 10px; }
+.error { color: var(--accent); font-weight: 600; font-size: 0.9rem; }
+.error:empty { display: none; }
+
+/* Results */
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 0.9rem; }
+.meta strong { color: var(--ink); font-weight: 600; }
+.links { list-style: none; padding: 0; margin: 0; display: grid; }
+.links li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.links li:first-child { border-top: none; }
+.links .who { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.links .acts { display: flex; gap: 8px; flex-shrink: 0; }
+.links button { padding: 8px 12px; font-size: 0.9rem; }
+.copied { background: var(--pine) !important; color: var(--surface) !important; border-color: var(--pine) !important; }
+.fallback { font-size: 0.8rem; font-family: ui-monospace, Menlo, monospace; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border-radius: 10px; background: var(--accent-soft); font-size: 0.9rem; }
+.all-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.all-table td { padding: 8px 0; border-top: 1px solid var(--line); }
+.all-table td:last-child { text-align: right; font-weight: 600; }
+.foot { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+
+/* Phone mode */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.grid button { background: var(--surface); border: 1px solid var(--line); color: var(--ink); padding: 18px 10px; font-size: 1.05rem; display: grid; gap: 2px; }
+.grid button:hover { border-color: var(--accent); }
+.grid button.seen { color: var(--muted); background: var(--bg); }
+.grid button small { font-size: 0.75rem; font-weight: 500; color: var(--pine); }
+
+/* The gift tag */
+.tag-stage { display: grid; justify-items: center; gap: 14px; padding: 8px 0; }
+.tag { width: min(100%, 340px); aspect-ratio: 1.55; max-width: 100%; perspective: 1000px; background: none; border: none; padding: 0; position: relative; }
+.tag::before { /* the string */
+  content: ""; position: absolute; left: -26px; top: 50%; width: 46px; height: 2px;
+  background: var(--muted); transform: rotate(-8deg); transform-origin: right; opacity: .6;
+}
+.tag-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.2,.8,.2,1); }
+.tag.open .tag-inner { transform: rotateY(180deg); }
+.face {
+  position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  clip-path: polygon(16% 0, 100% 0, 100% 100%, 16% 100%, 0 72%, 0 28%);
+  border-radius: 6px; display: grid; place-items: center; padding: 0 18px 0 22%;
+}
+.face::after { /* punched hole */
+  content: ""; position: absolute; left: 7%; top: 50%; width: 16px; height: 16px; margin-top: -8px;
+  border-radius: 50%; background: var(--bg); box-shadow: inset 0 1px 2px rgba(0,0,0,.25);
+}
+.front {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 14px, rgba(255,255,255,.12) 14px 18px),
+    var(--accent);
+  color: var(--accent-ink);
+}
+.front span { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; letter-spacing: .02em; }
+.back { background: var(--kraft); color: var(--kraft-ink); transform: rotateY(180deg); text-align: left; }
+.back .to { font-size: 0.8rem; text-transform: uppercase; letter-spacing: .14em; font-weight: 600; opacity: .75; }
+.back .name { font-family: var(--font-hand); font-weight: 700; font-size: clamp(2.4rem, 11vw, 3.4rem); line-height: 1; overflow-wrap: anywhere; }
+.back .inner { display: grid; gap: 6px; width: 100%; }
+.tag-help { font-size: 0.85rem; color: var(--muted); }
+.reveal-card { text-align: center; justify-items: center; }
+.reveal-card .meta { justify-content: center; }
+
+@media (prefers-reduced-motion: reduce) { .tag-inner { transition: none; } }
+@media (max-width: 420px) { .panel { padding: 18px; } .links li { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top" id="topHeader">
+    <p class="eyebrow">Secret Santa</p>
+    <h1>Qui offre à qui ?</h1>
+    <p class="lede">Ajoute les participants, lance le tirage, puis envoie à chacun son lien secret. Personne ne voit les résultats des autres, pas même l'organisateur.</p>
+  </header>
+
+  <!-- 1. Setup -->
+  <form class="panel" id="setup" novalidate>
+    <div class="example" id="exampleNote">
+      <span>Exemple pré-rempli : remplace ces prénoms par les tiens.</span>
+      <button type="button" class="btn-link" id="clearAll">Tout effacer</button>
+    </div>
+
+    <div class="group">
+      <h3>L'événement</h3>
+      <label for="event">Nom
+        <input id="event" type="text" placeholder="Noël en famille" maxlength="60">
+      </label>
+      <div class="row">
+        <label for="budget">Budget max (€)
+          <input id="budget" type="number" min="0" step="1" inputmode="numeric" placeholder="20">
+        </label>
+        <label for="date">Échange des cadeaux
+          <input id="date" type="date">
+        </label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Participants</h3>
+      <div class="add">
+        <input id="nameInput" type="text" placeholder="Prénom, puis Entrée" maxlength="40" autocomplete="off" aria-label="Prénom du participant">
+        <button type="button" class="btn-ghost" id="addBtn">Ajouter</button>
+      </div>
+      <ul class="chips" id="chips"></ul>
+      <p class="count" id="count"></p>
+    </div>
+
+    <details id="exclDetails">
+      <summary>Exclusions (optionnel)</summary>
+      <label for="excl"><span class="hint">Une paire par ligne. Ces deux personnes ne pourront pas se tirer entre elles, pratique pour les couples.</span>
+        <textarea id="excl" placeholder="Léa - Hugo"></textarea>
+      </label>
+    </details>
+
+    <p class="error" id="error" role="alert"></p>
+    <button type="submit" class="btn-primary btn-big">Lancer le tirage</button>
+  </form>
+
+  <!-- 2. Results (organiser) -->
+  <section class="panel" id="results" hidden>
+    <div class="group">
+      <p class="eyebrow">Tirage fait</p>
+      <h2 id="resTitle">C'est tiré !</h2>
+      <div class="meta" id="resMeta"></div>
+    </div>
+
+    <div class="group">
+      <h3>Envoie à chacun son lien</h3>
+      <p class="hint">Chaque lien n'affiche que le destinataire de la personne concernée. Colle-le dans un SMS, WhatsApp ou un mail.</p>
+      <ul class="links" id="links"></ul>
+    </div>
+
+    <div class="group">
+      <h3>Vous êtes tous ensemble ?</h3>
+      <p class="hint">Faites tourner un seul téléphone : chacun touche son prénom et découvre son destinataire.</p>
+      <button type="button" class="btn-ghost" id="phoneBtn">Passer en mode téléphone</button>
+    </div>
+
+    <div class="group" id="dangerZone">
+      <div class="foot">
+        <button type="button" class="btn-link" id="editBtn">Modifier les participants</button>
+        <button type="button" class="btn-link" id="redrawBtn">Refaire le tirage</button>
+        <button type="button" class="btn-link" id="showAllBtn">Voir tous les résultats</button>
+      </div>
+      <div class="confirm" id="confirmBox" hidden>
+        <span id="confirmText"></span>
+        <button type="button" class="btn-primary" id="confirmYes">Oui</button>
+        <button type="button" class="btn-ghost" id="confirmNo">Annuler</button>
+      </div>
+      <table class="all-table" id="allTable" hidden><tbody></tbody></table>
+    </div>
+  </section>
+
+  <!-- 3. Phone mode -->
+  <section class="panel" id="phone" hidden>
+    <div class="group" id="phonePick">
+      <p class="eyebrow">Mode téléphone</p>
+      <h2>Touche ton prénom</h2>
+      <p class="hint">Regarde seul, puis cache avant de passer le téléphone.</p>
+      <div class="grid" id="phoneGrid"></div>
+    </div>
+    <div class="group" id="phoneConfirm" hidden>
+      <h2 id="phoneConfirmTitle"></h2>
+      <p class="hint">Vérifie que personne ne regarde par-dessus ton épaule.</p>
+      <div class="row">
+        <button type="button" class="btn-primary" id="phoneYes">Oui, c'est moi</button>
+        <button type="button" class="btn-ghost" id="phoneNo">Non, retour</button>
+      </div>
+    </div>
+    <div class="group reveal-card" id="phoneReveal" hidden>
+      <h2 id="phoneRevealTitle"></h2>
+      <div class="tag-stage" id="phoneTag"></div>
+      <button type="button" class="btn-primary" id="phoneHide">C'est noté, cacher</button>
+    </div>
+    <button type="button" class="btn-link" id="phoneBack">Retour au tirage</button>
+  </section>
+
+  <!-- 4. Reveal from a personal link -->
+  <section class="panel reveal-card" id="reveal" hidden>
+    <p class="eyebrow" id="revEvent">Secret Santa</p>
+    <h2 id="revTitle"></h2>
+    <div class="tag-stage" id="revTag"></div>
+    <div class="meta" id="revMeta"></div>
+    <p class="hint">Garde le secret jusqu'au jour J.</p>
+  </section>
+
+  <section class="panel" id="badLink" hidden>
+    <h2>Ce lien ne marche pas</h2>
+    <p class="hint">Il a peut-être été coupé en le copiant. Demande à l'organisateur de te le renvoyer en entier.</p>
+  </section>
+
+  <p id="ownLink" hidden><button type="button" class="btn-link" id="ownBtn">Organiser mon propre tirage</button></p>
+</div>
+
+<script>
+(function () {
+  // Public address of this page, used to build the personal links.
+  var BASE_URL = '';
+  var KEY = 'lutin-discret-2026';
+  var STORE = 'secret-santa-v1';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var views = ['setup', 'results', 'phone', 'reveal', 'badLink'];
+  function show(view) {
+    views.forEach(function (v) { $(v).hidden = v !== view; });
+    $('topHeader').hidden = view === 'reveal' || view === 'badLink';
+    $('ownLink').hidden = !(view === 'reveal' || view === 'badLink');
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- state ----------
+  var EXAMPLE = {
+    event: 'Noël au bureau', budget: '20', date: '2026-12-19',
+    names: ['Camille', 'Hugo', 'Léa', 'Mehdi', 'Sarah', 'Thomas'],
+    excl: 'Léa - Hugo', pairs: null, seen: {}, example: true
+  };
+  var state = load() || JSON.parse(JSON.stringify(EXAMPLE));
+
+  function load() { try { var s = localStorage.getItem(STORE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+
+  // ---------- encoding for links (letters + digits only) ----------
+  function enc(obj) {
+    var bytes = new TextEncoder().encode(JSON.stringify(obj)), out = '';
+    for (var i = 0; i < bytes.length; i++) out += ((bytes[i] ^ KEY.charCodeAt(i % KEY.length)) & 255).toString(16).padStart(2, '0');
+    return out;
+  }
+  function dec(hex) {
+    if (!/^([0-9a-f]{2})+$/.test(hex)) throw new Error('bad');
+    var bytes = new Uint8Array(hex.length / 2);
+    for (var i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16) ^ KEY.charCodeAt(i % KEY.length);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+  function base() { return BASE_URL || location.href.split('#')[0]; }
+  function linkFor(pair) { return base() + '#p-' + enc([pair[0], pair[1], state.event, state.budget, state.date]); }
+
+  // ---------- helpers ----------
+  function norm(s) { return s.trim().toLocaleLowerCase('fr').normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  function fmtDate(d) {
+    if (!d) return '';
+    var dt = new Date(d + 'T12:00:00');
+    if (isNaN(dt)) return '';
+    return dt.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  function metaHTML(budget, date) {
+    var parts = [];
+    if (budget) parts.push('<span>Budget <strong>' + esc(budget) + ' €</strong></span>');
+    if (date && fmtDate(date)) parts.push('<span>Échange le <strong>' + esc(fmtDate(date)) + '</strong></span>');
+    return parts.join('');
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  // ---------- setup ----------
+  function renderSetup() {
+    $('event').value = state.event || '';
+    $('budget').value = state.budget || '';
+    $('date').value = state.date || '';
+    $('excl').value = state.excl || '';
+    $('exclDetails').open = !!state.excl;
+    $('exampleNote').hidden = !state.example;
+    renderChips();
+  }
+  function renderChips() {
+    $('chips').innerHTML = state.names.map(function (n, i) {
+      return '<li class="chip">' + esc(n) + '<button type="button" data-i="' + i + '" aria-label="Retirer ' + esc(n) + '">×</button></li>';
+    }).join('');
+    var n = state.names.length;
+    $('count').textContent = n === 0 ? 'Aucun participant pour l’instant.' :
+      n + ' participant' + (n > 1 ? 's' : '') + (n < 3 ? ' · il en faut au moins 3' : '');
+  }
+  function readFields() {
+    state.event = $('event').value.trim();
+    state.budget = $('budget').value.trim();
+    state.date = $('date').value;
+    state.excl = $('excl').value;
+  }
+  function addName() {
+    var v = $('nameInput').value.replace(/\s+/g, ' ').trim();
+    if (!v) return;
+    if (state.names.some(function (n) { return norm(n) === norm(v); })) {
+      $('error').textContent = v + ' est déjà dans la liste.'; return;
+    }
+    state.names.push(v); state.example = false;
+    $('nameInput').value = ''; $('error').textContent = '';
+    renderChips(); $('exampleNote').hidden = true; readFields(); save();
+    $('nameInput').focus();
+  }
+  $('addBtn').addEventListener('click', addName);
+  $('nameInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addName(); } });
+  $('chips').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-i]'); if (!b) return;
+    state.names.splice(+b.dataset.i, 1); renderChips(); readFields(); save();
+  });
+  ['event', 'budget', 'date', 'excl'].forEach(function (id) {
+    $(id).addEventListener('input', function () { readFields(); save(); });
+  });
+  $('clearAll').addEventListener('click', function () {
+    state = { event: '', budget: '', date: '', names: [], excl: '', pairs: null, seen: {}, example: false };
+    save(); renderSetup(); $('event').focus();
+  });
+
+  function parseExclusions() {
+    var byNorm = {}; state.names.forEach(function (n) { byNorm[norm(n)] = n; });
+    var set = {}, lines = (state.excl || '').split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim(); if (!line) continue;
+      var parts = line.split(/\s+[-–—]\s+|\s*[,\/&+;]\s*|\s+et\s+/i).map(function (p) { return p.trim(); }).filter(Boolean);
+      if (parts.length !== 2) throw new Error('La ligne d’exclusion « ' + line + ' » doit contenir deux prénoms, par exemple « Léa - Hugo ».');
+      for (var j = 0; j < 2; j++) if (!byNorm[norm(parts[j])]) throw new Error('« ' + parts[j] + ' » est dans les exclusions mais pas dans les participants.');
+      var a = norm(parts[0]), b = norm(parts[1]);
+      set[a + '|' + b] = true; set[b + '|' + a] = true;
+    }
+    return set;
+  }
+  function draw(names, excl) {
+    // One big circle: everyone gives to the next person in a shuffled order.
+    for (var attempt = 0; attempt < 5000; attempt++) {
+      var order = names.slice();
+      for (var i = order.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = order[i]; order[i] = order[j]; order[j] = t; }
+      var ok = true, pairs = [];
+      for (var k = 0; k < order.length; k++) {
+        var g = order[k], r = order[(k + 1) % order.length];
+        if (excl[norm(g) + '|' + norm(r)]) { ok = false; break; }
+        pairs.push([g, r]);
+      }
+      if (ok) return names.map(function (n) { return pairs.find(function (p) { return p[0] === n; }); });
+    }
+    return null;
+  }
+
+  $('setup').addEventListener('submit', function (e) {
+    e.preventDefault(); readFields();
+    if ($('nameInput').value.trim()) addName();
+    var err = $('error'); err.textContent = '';
+    if (state.names.length < 3) { err.textContent = 'Il faut au moins 3 participants pour un tirage.'; return; }
+    var excl;
+    try { excl = parseExclusions(); } catch (ex) { err.textContent = ex.message; $('exclDetails').open = true; return; }
+    var pairs = draw(state.names, excl);
+    if (!pairs) { err.textContent = 'Impossible de faire un tirage avec ces exclusions. Retires-en une et réessaie.'; return; }
+    state.pairs = pairs; state.seen = {}; save();
+    renderResults(); show('results');
+  });
+
+  // ---------- results ----------
+  function renderResults() {
+    $('resTitle').textContent = state.event ? state.event : 'C’est tiré !';
+    $('resMeta').innerHTML = '<span><strong>' + state.pairs.length + '</strong> participants</span>' + metaHTML(state.budget, state.date);
+    $('links').innerHTML = state.pairs.map(function (p, i) {
+      return '<li><span class="who">' + esc(p[0]) + '</span><span class="acts">' +
+        '<button type="button" class="btn-ghost" data-copy="msg" data-i="' + i + '">Copier le message</button>' +
+        '<button type="button" class="btn-ghost" data-copy="link" data-i="' + i + '">Lien seul</button></span></li>';
+    }).join('');
+    $('allTable').hidden = true; $('confirmBox').hidden = true;
+  }
+  function messageFor(p) {
+    return 'Salut ' + p[0] + ' ! Le tirage du Secret Santa' + (state.event ? ' « ' + state.event + ' »' : '') +
+      ' est fait. Ouvre ce lien pour découvrir à qui tu offres un cadeau (ne le montre à personne) : ' + linkFor(p);
+  }
+  $('links').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-copy]'); if (!b) return;
+    var p = state.pairs[+b.dataset.i];
+    var text = b.dataset.copy === 'msg' ? messageFor(p) : linkFor(p);
+    var label = b.textContent;
+    function done() { b.textContent = 'Copié'; b.classList.add('copied'); setTimeout(function () { b.textContent = label; b.classList.remove('copied'); }, 1600); }
+    function fallback() {
+      var li = b.closest('li'), old = li.querySelector('input');
+      if (old) old.remove();
+      var inp = document.createElement('input'); inp.className = 'fallback'; inp.readOnly = true; inp.value = text;
+      inp.setAttribute('aria-label', 'Texte à copier'); li.appendChild(inp); li.style.flexWrap = 'wrap';
+      inp.focus(); inp.select();
+    }
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (ex) { fallback(); }
+  });
+
+  var pendingAction = null;
+  function ask(text, action) { $('confirmText').textContent = text; $('confirmBox').hidden = false; pendingAction = action; }
+  $('confirmNo').addEventListener('click', function () { $('confirmBox').hidden = true; pendingAction = null; });
+  $('confirmYes').addEventListener('click', function () { $('confirmBox').hidden = true; var a = pendingAction; pendingAction = null; if (a) a(); });
+
+  $('redrawBtn').addEventListener('click', function () {
+    ask('Les liens déjà envoyés afficheront l’ancien tirage. Refaire quand même ?', function () {
+      var pairs = draw(state.names, parseExclusions());
+      if (pairs) { state.pairs = pairs; state.seen = {}; save(); renderResults(); }
+    });
+  });
+  $('editBtn').addEventListener('click', function () {
+    ask('Modifier les participants annule ce tirage. Continuer ?', function () {
+      state.pairs = null; save(); renderSetup(); show('setup');
+    });
+  });
+  $('showAllBtn').addEventListener('click', function () {
+    ask('Tu vas voir qui offre à qui, y compris ton propre destinataire. Afficher ?', function () {
+      $('allTable').querySelector('tbody').innerHTML = state.pairs.map(function (p) {
+        return '<tr><td>' + esc(p[0]) + '</td><td>offre à ' + esc(p[1]) + '</td></tr>';
+      }).join('');
+      $('allTable').hidden = false;
+    });
+  });
+
+  // ---------- gift tag ----------
+  function makeTag(stage, receiver) {
+    stage.innerHTML =
+      '<button type="button" class="tag" aria-label="Ouvrir l’étiquette">' +
+        '<span class="tag-inner">' +
+          '<span class="face front"><span>Touche pour ouvrir</span></span>' +
+          '<span class="face back"><span class="inner"><span class="to">Pour</span><span class="name"></span></span></span>' +
+        '</span></button>' +
+      '<p class="tag-help">Touche l’étiquette pour la retourner.</p>';
+    stage.querySelector('.name').textContent = receiver;
+    var tag = stage.querySelector('.tag');
+    tag.addEventListener('click', function () {
+      tag.classList.add('open'); tag.setAttribute('aria-label', 'Tu offres un cadeau à ' + receiver);
+      stage.querySelector('.tag-help').textContent = 'Tu offres un cadeau à ' + receiver + '.';
+    });
+  }
+
+  // ---------- phone mode ----------
+  var phoneIdx = -1;
+  function phoneStep(step) {
+    $('phonePick').hidden = step !== 'pick';
+    $('phoneConfirm').hidden = step !== 'confirm';
+    $('phoneReveal').hidden = step !== 'reveal';
+    $('phoneBack').hidden = step === 'reveal';
+  }
+  function renderPhoneGrid() {
+    $('phoneGrid').innerHTML = state.pairs.map(function (p, i) {
+      var seen = state.seen && state.seen[p[0]];
+      return '<button type="button" data-i="' + i + '" class="' + (seen ? 'seen' : '') + '">' + esc(p[0]) + (seen ? '<small>déjà vu</small>' : '') + '</button>';
+    }).join('');
+    phoneStep('pick');
+  }
+  $('phoneBtn').addEventListener('click', function () { renderPhoneGrid(); show('phone'); });
+  $('phoneGrid').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-i]'); if (!b) return;
+    phoneIdx = +b.dataset.i;
+    $('phoneConfirmTitle').textContent = 'Tu es bien ' + state.pairs[phoneIdx][0] + ' ?';
+    phoneStep('confirm');
+  });
+  $('phoneNo').addEventListener('click', function () { phoneStep('pick'); });
+  $('phoneYes').addEventListener('click', function () {
+    var p = state.pairs[phoneIdx];
+    $('phoneRevealTitle').textContent = p[0] + ', tu offres un cadeau à…';
+    makeTag($('phoneTag'), p[1]);
+    phoneStep('reveal');
+  });
+  $('phoneHide').addEventListener('click', function () {
+    state.seen = state.seen || {}; state.seen[state.pairs[phoneIdx][0]] = true; save();
+    $('phoneTag').innerHTML = ''; renderPhoneGrid();
+  });
+  $('phoneBack').addEventListener('click', function () { show('results'); });
+
+  // ---------- personal link ----------
+  function route() {
+    var h = location.hash.replace(/^#/, '');
+    if (h.indexOf('p-') === 0) {
+      try {
+        var d = dec(h.slice(2));
+        $('revEvent').textContent = d[2] ? 'Secret Santa · ' + d[2] : 'Secret Santa';
+        $('revTitle').textContent = d[0] + ', tu offres un cadeau à…';
+        $('revMeta').innerHTML = metaHTML(d[3], d[4]);
+        makeTag($('revTag'), d[1]);
+        show('reveal');
+      } catch (ex) { show('badLink'); }
+      return;
+    }
+    if (state.pairs) { renderResults(); show('results'); }
+    else { renderSetup(); show('setup'); }
+  }
+  $('ownBtn').addEventListener('click', function () {
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+    route();
+  });
+  window.addEventListener('hashchange', route);
+  route();
+})();
+</script>
+</body>
+</html>
