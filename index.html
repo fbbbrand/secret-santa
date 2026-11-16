@@ -329,7 +329,7 @@ details[open] summary { margin-bottom: 10px; }
     for (var i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16) ^ KEY.charCodeAt(i % KEY.length);
     return JSON.parse(new TextDecoder().decode(bytes));
   }
-  function base() { return BASE_URL || location.href.split('#')[0]; }
+  function base() { return BASE_URL || (location.origin + location.pathname); }
   function linkFor(pair) { return base() + '#p-' + enc([pair[0], pair[1], state.event, state.budget, state.date]); }
 
   // ---------- helpers ----------
