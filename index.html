@@ -474,7 +474,7 @@ details[open] summary { margin-bottom: 10px; }
       var receivers = {}; pairs.forEach(function (p, i) { receivers[i] = p[1]; });
       return drawRef(id).child('receivers').set(receivers);
     }).then(function () {
-      state.drawId = id; state.pairs = pairs; save();
+      state.drawId = id; state.pairs = pairs; state.shortUrl = null; save();
       openResults();
     }).catch(function (ex) {
       err.textContent = ex && ex.message === 'config'
@@ -489,12 +489,24 @@ details[open] summary { margin-bottom: 10px; }
   function messageText() {
     return 'Secret Santa' + (state.event ? ' « ' + state.event + ' »' : '') + ' : le tirage est fait ! ' +
       'Ouvre ce lien, touche TON prénom et découvre à qui tu offres un cadeau. ' +
-      'Chaque prénom ne peut être ouvert qu’une seule fois, alors ne touche pas celui des autres. ' + shareUrl(state.drawId);
+      'Chaque prénom ne peut être ouvert qu’une seule fois, alors ne touche pas celui des autres. ' + groupUrl();
+  }
+  function groupUrl() { return state.shortUrl || shareUrl(state.drawId); }
+  function shortenGroupLink() {
+    if (state.shortUrl || !state.drawId) return;
+    var id = state.drawId;
+    fetch('https://is.gd/create.php?format=json&url=' + encodeURIComponent(shareUrl(id)))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.shorturl && state.drawId === id) { state.shortUrl = d.shorturl; save(); $('shareUrl').textContent = d.shorturl; }
+      })
+      .catch(function () {});
   }
   function openResults() {
     $('resTitle').textContent = state.event || 'C’est tiré !';
     $('resMeta').innerHTML = '<span><strong>' + state.pairs.length + '</strong> participants</span>' + metaHTML(state.budget, state.date);
-    $('shareUrl').textContent = shareUrl(state.drawId);
+    $('shareUrl').textContent = groupUrl();
+    shortenGroupLink();
     $('copyFallback').hidden = true;
     $('allTable').hidden = true; $('confirmBox').hidden = true;
     renderStatus({});
@@ -520,7 +532,7 @@ details[open] summary { margin-bottom: 10px; }
     $('progress').textContent = opened + ' / ' + state.pairs.length + ' ont ouvert';
   }
   $('copyMsg').addEventListener('click', function () { copy(messageText(), $('copyMsg'), $('copyFallback')); });
-  $('copyLink').addEventListener('click', function () { copy(shareUrl(state.drawId), $('copyLink'), $('copyFallback')); });
+  $('copyLink').addEventListener('click', function () { copy(groupUrl(), $('copyLink'), $('copyFallback')); });
 
   var pendingAction = null;
   function ask(text, action) { $('confirmText').textContent = text; $('confirmBox').hidden = false; pendingAction = action; $('confirmBox').scrollIntoView({ block: 'nearest' }); }
@@ -537,7 +549,7 @@ details[open] summary { margin-bottom: 10px; }
   });
   $('newDrawBtn').addEventListener('click', function () {
     ask('Préparer un nouveau tirage ? Il faudra partager un nouveau lien dans le groupe.', function () {
-      stopClaims(); state.drawId = null; state.pairs = null; save(); renderSetup(); show('setup');
+      stopClaims(); state.drawId = null; state.pairs = null; state.shortUrl = null; save(); renderSetup(); show('setup');
     });
   });
   $('showAllBtn').addEventListener('click', function () {
