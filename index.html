@@ -125,7 +125,7 @@ details[open] summary { margin-bottom: 10px; }
 
 /* The gift tag */
 .tag-stage { display: grid; justify-items: center; gap: 14px; padding: 8px 0; }
-.tag { width: min(100%, 340px); aspect-ratio: 1.55; max-width: 100%; perspective: 1000px; background: none; border: none; padding: 0; position: relative; }
+.tag { width: 340px; aspect-ratio: 1.55; max-width: calc(100% - 30px); justify-self: center; perspective: 1000px; background: none; border: none; padding: 0; position: relative; }
 .tag::before { /* the string */
   content: ""; position: absolute; left: -26px; top: 50%; width: 46px; height: 2px;
   background: var(--muted); transform: rotate(-8deg); transform-origin: right; opacity: .6;
