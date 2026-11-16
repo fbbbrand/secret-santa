@@ -289,7 +289,6 @@ details[open] summary { margin-bottom: 10px; }
     <p class="hint" id="problemText"></p>
   </section>
 
-  <p id="ownLink" hidden><button type="button" class="btn-link" id="ownBtn">Organiser mon propre tirage</button></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -315,7 +314,6 @@ details[open] summary { margin-bottom: 10px; }
     views.forEach(function (v) { $(v).hidden = v !== view; });
     var participant = ['pick', 'confirmName', 'reveal', 'problem'].indexOf(view) >= 0 || (view === 'loading' && drawFromHash());
     $('topHeader').hidden = !!participant;
-    $('ownLink').hidden = !participant;
     window.scrollTo(0, 0);
   }
   function problem(title, text) { $('problemTitle').textContent = title; $('problemText').textContent = text; show('problem'); }
@@ -666,10 +664,6 @@ details[open] summary { margin-bottom: 10px; }
     if (state.drawId && state.pairs) openResults();
     else { renderSetup(); show('setup'); }
   }
-  $('ownBtn').addEventListener('click', function () {
-    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
-    route();
-  });
   window.addEventListener('hashchange', route);
   route();
 })();
