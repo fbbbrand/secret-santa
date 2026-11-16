@@ -105,7 +105,8 @@ details[open] summary { margin-bottom: 10px; }
 .links { list-style: none; padding: 0; margin: 0; display: grid; }
 .links li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
 .links li:first-child { border-top: none; }
-.links .who { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.links .who { font-weight: 600; min-width: 0; overflow-wrap: anywhere; display: grid; gap: 2px; }
+.links .short { font-size: 0.8rem; font-weight: 400; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
 .links .acts { display: flex; gap: 8px; flex-shrink: 0; }
 .links button { padding: 8px 12px; font-size: 0.9rem; }
 .copied { background: var(--pine) !important; color: var(--surface) !important; border-color: var(--pine) !important; }
@@ -223,7 +224,7 @@ details[open] summary { margin-bottom: 10px; }
 
     <div class="group">
       <h3>Envoie à chacun son lien</h3>
-      <p class="hint">Chaque lien n'affiche que le destinataire de la personne concernée. Colle-le dans un SMS, WhatsApp ou un mail.</p>
+      <p class="hint">Chaque lien n'affiche que le destinataire de la personne concernée. Les liens sont raccourcis automatiquement avec is.gd. Colle-les dans un SMS, WhatsApp ou un mail.</p>
       <ul class="links" id="links"></ul>
     </div>
 
@@ -434,7 +435,7 @@ details[open] summary { margin-bottom: 10px; }
     try { excl = parseExclusions(); } catch (ex) { err.textContent = ex.message; $('exclDetails').open = true; return; }
     var pairs = draw(state.names, excl);
     if (!pairs) { err.textContent = 'Impossible de faire un tirage avec ces exclusions. Retires-en une et réessaie.'; return; }
-    state.pairs = pairs; state.seen = {}; save();
+    state.pairs = pairs; state.seen = {}; state.short = {}; save();
     renderResults(); show('results');
   });
 
@@ -443,20 +444,57 @@ details[open] summary { margin-bottom: 10px; }
     $('resTitle').textContent = state.event ? state.event : 'C’est tiré !';
     $('resMeta').innerHTML = '<span><strong>' + state.pairs.length + '</strong> participants</span>' + metaHTML(state.budget, state.date);
     $('links').innerHTML = state.pairs.map(function (p, i) {
-      return '<li><span class="who">' + esc(p[0]) + '</span><span class="acts">' +
+      return '<li><span class="who">' + esc(p[0]) + '<span class="short" data-short="' + i + '">' + shortLabel(i) + '</span></span><span class="acts">' +
         '<button type="button" class="btn-ghost" data-copy="msg" data-i="' + i + '">Copier le message</button>' +
         '<button type="button" class="btn-ghost" data-copy="link" data-i="' + i + '">Lien seul</button></span></li>';
     }).join('');
     $('allTable').hidden = true; $('confirmBox').hidden = true;
+    shortenAll();
   }
-  function messageFor(p) {
+
+  // ---------- short links (is.gd) ----------
+  var shortFailed = {};
+  function shortLabel(i) {
+    if (state.short && state.short[i]) return esc(state.short[i].replace(/^https?:\/\//, ''));
+    if (shortFailed[i]) return 'lien long (raccourcisseur indisponible)';
+    return 'création du lien court…';
+  }
+  function urlFor(i) { return (state.short && state.short[i]) || linkFor(state.pairs[i]); }
+  function updateShort(i) {
+    var el = document.querySelector('[data-short="' + i + '"]');
+    if (el) el.innerHTML = shortLabel(i);
+  }
+  var shortening = false;
+  async function shortenAll() {
+    if (shortening || !state.pairs) return;
+    shortening = true;
+    state.short = state.short || {};
+    var pairs = state.pairs;
+    for (var i = 0; i < pairs.length; i++) {
+      if (state.pairs !== pairs) break;
+      if (state.short[i]) continue;
+      try {
+        var res = await fetch('https://is.gd/create.php?format=json&url=' + encodeURIComponent(linkFor(pairs[i])));
+        var data = await res.json();
+        if (state.pairs !== pairs) break;
+        if (data.shorturl) { state.short[i] = data.shorturl; delete shortFailed[i]; save(); }
+        else shortFailed[i] = true;
+      } catch (ex) { shortFailed[i] = true; }
+      updateShort(i);
+    }
+    shortening = false;
+    if (state.pairs && state.pairs !== pairs) shortenAll();
+  }
+
+  function messageFor(i) {
+    var p = state.pairs[i];
     return 'Salut ' + p[0] + ' ! Le tirage du Secret Santa' + (state.event ? ' « ' + state.event + ' »' : '') +
-      ' est fait. Ouvre ce lien pour découvrir à qui tu offres un cadeau (ne le montre à personne) : ' + linkFor(p);
+      ' est fait. Ouvre ce lien pour découvrir à qui tu offres un cadeau (ne le montre à personne) : ' + urlFor(i);
   }
   $('links').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-copy]'); if (!b) return;
-    var p = state.pairs[+b.dataset.i];
-    var text = b.dataset.copy === 'msg' ? messageFor(p) : linkFor(p);
+    var i = +b.dataset.i;
+    var text = b.dataset.copy === 'msg' ? messageFor(i) : urlFor(i);
     var label = b.textContent;
     function done() { b.textContent = 'Copié'; b.classList.add('copied'); setTimeout(function () { b.textContent = label; b.classList.remove('copied'); }, 1600); }
     function fallback() {
@@ -477,7 +515,7 @@ details[open] summary { margin-bottom: 10px; }
   $('redrawBtn').addEventListener('click', function () {
     ask('Les liens déjà envoyés afficheront l’ancien tirage. Refaire quand même ?', function () {
       var pairs = draw(state.names, parseExclusions());
-      if (pairs) { state.pairs = pairs; state.seen = {}; save(); renderResults(); }
+      if (pairs) { state.pairs = pairs; state.seen = {}; state.short = {}; save(); renderResults(); }
     });
   });
   $('editBtn').addEventListener('click', function () {
