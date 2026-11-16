@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "draws": {
+      "$d": {
+        "meta": {
+          ".read": true,
+          ".write": "auth != null && !data.exists() && newData.child('owner').val() === auth.uid",
+          ".validate": "newData.hasChildren(['names', 'owner'])"
+        },
+        "receivers": {
+          ".write": "auth != null && !data.exists() && root.child('draws').child($d).child('meta/owner').val() === auth.uid",
+          "$i": {
+            ".read": "auth != null && root.child('draws').child($d).child('claims').child($i).val() === auth.uid"
+          }
+        },
+        "claims": {
+          ".read": true,
+          "$i": {
+            ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid && newData.parent().parent().child('byUser').child(auth.uid).val() === $i && root.child('draws').child($d).child('meta/names').child($i).exists()) || (!newData.exists() && root.child('draws').child($d).child('meta/owner').val() === auth.uid))"
+          }
+        },
+        "byUser": {
+          "$u": {
+            ".write": "auth != null && ((!data.exists() && auth.uid === $u && newData.isString() && newData.parent().parent().child('claims').child(newData.val()).val() === auth.uid) || (!newData.exists() && root.child('draws').child($d).child('meta/owner').val() === auth.uid))"
+          }
+        }
+      }
+    }
+  }
+}
