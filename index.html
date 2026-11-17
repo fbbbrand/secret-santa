@@ -202,6 +202,13 @@ details[open] summary { margin-bottom: 10px; }
       </label>
     </details>
 
+    <details id="forcedDetails">
+      <summary>Paires imposées (optionnel)</summary>
+      <label for="forced"><span class="hint">Une paire par ligne, au format « qui offre &gt; à qui ». Le reste du tirage reste aléatoire. Les participants ne voient pas ce réglage.</span>
+        <textarea id="forced" placeholder="Marie > Émilie"></textarea>
+      </label>
+    </details>
+
     <p class="error" id="error" role="alert"></p>
     <button type="submit" class="btn-primary btn-big" id="drawBtn">Lancer le tirage</button>
   </form>
@@ -384,6 +391,8 @@ details[open] summary { margin-bottom: 10px; }
     $('date').value = state.date || '';
     $('excl').value = state.excl || '';
     $('exclDetails').open = !!state.excl;
+    $('forced').value = state.forced || '';
+    $('forcedDetails').open = !!state.forced;
     $('exampleNote').hidden = !state.example;
     renderChips();
   }
@@ -400,6 +409,7 @@ details[open] summary { margin-bottom: 10px; }
     state.budget = $('budget').value.trim();
     state.date = $('date').value;
     state.excl = $('excl').value;
+    state.forced = $('forced').value;
   }
   function addName() {
     var v = $('nameInput').value.replace(/\s+/g, ' ').trim();
@@ -416,9 +426,9 @@ details[open] summary { margin-bottom: 10px; }
     var b = e.target.closest('button[data-i]'); if (!b) return;
     state.names.splice(+b.dataset.i, 1); renderChips(); readFields(); save();
   });
-  ['event', 'budget', 'date', 'excl'].forEach(function (id) { $(id).addEventListener('input', function () { readFields(); save(); }); });
+  ['event', 'budget', 'date', 'excl', 'forced'].forEach(function (id) { $(id).addEventListener('input', function () { readFields(); save(); }); });
   $('clearAll').addEventListener('click', function () {
-    state = { event: '', budget: '', date: '', names: [], excl: '', drawId: null, pairs: null, example: false };
+    state = { event: '', budget: '', date: '', names: [], excl: '', forced: '', drawId: null, pairs: null, example: false };
     save(); renderSetup(); $('event').focus();
   });
 
@@ -435,21 +445,52 @@ details[open] summary { margin-bottom: 10px; }
     }
     return set;
   }
-  function draw(names, excl) {
+  // ---- draw-core start
+  function parseForced(text, names) {
+    var byNorm = {}; names.forEach(function (n) { byNorm[norm(n)] = n; });
+    var forced = {}, taken = {}, lines = (text || '').split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim(); if (!line) continue;
+      var parts = line.split(/\s*(?:->|→|=>|>)\s*|\s+[-–—]\s+/).map(function (p) { return p.trim(); }).filter(Boolean);
+      if (parts.length !== 2) throw new Error('La paire imposée « ' + line + ' » doit avoir la forme « Marie > Émilie ».');
+      var g = byNorm[norm(parts[0])], r = byNorm[norm(parts[1])];
+      if (!g) throw new Error('« ' + parts[0] + ' » est dans les paires imposées mais pas dans les participants.');
+      if (!r) throw new Error('« ' + parts[1] + ' » est dans les paires imposées mais pas dans les participants.');
+      if (g === r) throw new Error(g + ' ne peut pas se tirer soi-même.');
+      if (forced[g] && forced[g] !== r) throw new Error(g + ' a deux destinataires imposés.');
+      if (taken[r] && taken[r] !== g) throw new Error(r + ' est imposé comme destinataire de deux personnes.');
+      forced[g] = r; taken[r] = g;
+    }
+    return forced;
+  }
+  function draw(names, excl, forced) {
     // One big circle: everyone gives to the next person in a shuffled order.
+    // Forced pairs are glued into chains (Marie → Émilie) that are shuffled as one block.
+    forced = forced || {};
+    var isReceiver = {};
+    Object.keys(forced).forEach(function (g) { isReceiver[forced[g]] = true; });
+    var chains = [], seen = {};
+    names.forEach(function (n) {
+      if (isReceiver[n]) return;
+      var chain = [], cur = n;
+      while (cur && !seen[cur]) { seen[cur] = true; chain.push(cur); cur = forced[cur]; }
+      chains.push(chain);
+    });
+    if (names.some(function (n) { return !seen[n]; })) return null; // forced pairs close a smaller loop
     for (var attempt = 0; attempt < 5000; attempt++) {
-      var order = names.slice();
-      for (var i = order.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = order[i]; order[i] = order[j]; order[j] = t; }
-      var ok = true, pairs = [];
+      for (var i = chains.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = chains[i]; chains[i] = chains[j]; chains[j] = t; }
+      var order = [].concat.apply([], chains);
+      var ok = true, receiverOf = {};
       for (var k = 0; k < order.length; k++) {
         var g = order[k], r = order[(k + 1) % order.length];
-        if (excl[norm(g) + '|' + norm(r)]) { ok = false; break; }
-        pairs.push([g, r]);
+        if (g === r || excl[norm(g) + '|' + norm(r)]) { ok = false; break; }
+        receiverOf[g] = r;
       }
-      if (ok) return names.map(function (n) { return pairs.find(function (p) { return p[0] === n; }); });
+      if (ok) return names.map(function (n) { return [n, receiverOf[n]]; });
     }
     return null;
   }
+  // ---- draw-core end
 
   $('setup').addEventListener('submit', function (e) {
     e.preventDefault(); readFields();
@@ -458,8 +499,12 @@ details[open] summary { margin-bottom: 10px; }
     if (state.names.length < 3) { err.textContent = 'Il faut au moins 3 participants pour un tirage.'; return; }
     var excl;
     try { excl = parseExclusions(); } catch (ex) { err.textContent = ex.message; $('exclDetails').open = true; return; }
-    var pairs = draw(state.names, excl);
-    if (!pairs) { err.textContent = 'Impossible de faire un tirage avec ces exclusions. Retires-en une et réessaie.'; return; }
+    var forced;
+    try { forced = parseForced(state.forced, state.names); } catch (ex) { err.textContent = ex.message; $('forcedDetails').open = true; return; }
+    var clash = Object.keys(forced).filter(function (g) { return excl[norm(g) + '|' + norm(forced[g])]; })[0];
+    if (clash) { err.textContent = 'La paire imposée « ' + clash + ' > ' + forced[clash] + ' » est aussi dans les exclusions.'; return; }
+    var pairs = draw(state.names, excl, forced);
+    if (!pairs) { err.textContent = 'Impossible de faire un tirage avec ces exclusions et paires imposées. Retires-en une et réessaie.'; return; }
 
     var btn = $('drawBtn'); btn.disabled = true; btn.textContent = 'Création du lien…';
     var id = randomId(12);
